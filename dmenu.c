@@ -15,6 +15,7 @@
 #include <X11/extensions/Xinerama.h>
 #endif
 #include <X11/Xft/Xft.h>
+#include <X11/Xresource.h>
 
 #include "drw.h"
 #include "util.h"
@@ -659,9 +660,10 @@ setup(void)
 	swa.override_redirect = True;
 	swa.background_pixel = scheme[SchemeNorm][ColBg].pixel;
 	swa.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask;
-	win = XCreateWindow(dpy, parentwin, x, y, mw, mh, 0,
+	win = XCreateWindow(dpy, parentwin, x, y, mw, mh, border_width,
 	                    CopyFromParent, CopyFromParent, CopyFromParent,
 	                    CWOverrideRedirect | CWBackPixel | CWEventMask, &swa);
+	XSetWindowBorder(dpy, win, scheme[SchemeNorm][ColFg].pixel);
 	XSetClassHint(dpy, win, &ch);
 
 
@@ -692,6 +694,29 @@ usage(void)
 	fputs("usage: dmenu [-bfiv] [-l lines] [-p prompt] [-fn font] [-m monitor]\n"
 	      "             [-nb color] [-nf color] [-sb color] [-sf color] [-w windowid]\n", stderr);
 	exit(1);
+}
+
+void
+read_Xresources(void) {
+	XrmInitialize();
+
+	char* xrm;
+	if ((xrm = XResourceManagerString(drw->dpy))) {
+		char *type;
+		XrmDatabase xdb = XrmGetStringDatabase(xrm);
+		XrmValue xval;
+
+		if (XrmGetResource(xdb, "dmenu.font", "*", &type, &xval) == True) /* font or font set */
+			fonts[0] =  strdup(xval.addr);
+		if (XrmGetResource(xdb, "dmenu.background", "*", &type, &xval) == True) /* normal background color */
+			colors[SchemeNorm][ColBg] = strdup(xval.addr);
+		if (XrmGetResource(xdb, "dmenu.foreground", "*", &type, &xval) == True) /* normal foreground color */
+			colors[SchemeNorm][ColFg] = strdup(xval.addr);
+		if (XrmGetResource(xdb, "dmenu.selbackground", "*", &type, &xval) == True) /* selected background color */
+			colors[SchemeSel][ColBg] = strdup(xval.addr);
+		if (XrmGetResource(xdb, "dmenu.selforeground", "*", &type, &xval) == True) /* selected background color */
+			colors[SchemeSel][ColFg] = strdup(xval.addr);
+	}
 }
 
 int
@@ -748,6 +773,7 @@ main(int argc, char *argv[])
 		die("could not get embedding window attributes: 0x%lx",
 		    parentwin);
 	drw = drw_create(dpy, screen, root, wa.width, wa.height);
+	read_Xresources();
 	if (!drw_fontset_create(drw, fonts, LENGTH(fonts)))
 		die("no fonts could be loaded.");
 	lrpad = drw->fonts->h;
